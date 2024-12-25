@@ -92,6 +92,12 @@ residual = add_residual(branch_output)
 residual = reduce_stream(residual)
 ```
 
+To compare hyper connections to plain residual without changing the code, just pass `disable = True` when fetching the functions
+
+```python
+HyperConnections.get_init_and_expand_reduce_stream_functions(4, disabled = True)
+```
+
 ## Citation
 
 ```bibtex

@@ -18,7 +18,46 @@ def exists(v):
 def default(v, d):
     return v if exists(v) else d
 
-# main class
+def identity(t):
+    return t
+
+# main classes
+
+# residual base class
+
+class Residual(Module):
+    def __init__(
+        self,
+        *args,
+        branch = None,
+        **kwargs
+    ):
+        super().__init__()
+        self.branch = branch
+
+    def width_connection(self, residuals):
+        return residuals, residuals, dict()
+
+    def depth_connection(self, branch_output, residuals):
+        return branch_output + residuals
+
+    def forward(self, residuals, *branch_args, **branch_kwargs):
+
+        branch_input, residuals, residual_kwargs = self.width_connection(residuals)
+
+        def add_residual_fn(branch_out):
+            return self.depth_connection(branch_out, residuals, **residual_kwargs)
+
+        if not exists(self.branch):
+            return branch_input, add_residual_fn
+
+        branch_output = self.branch(branch_input, *branch_args, **branch_kwargs)
+
+        (branch_output, *rest), tree_spec = tree_flatten(branch_output)
+
+        branch_output = add_residual_fn(branch_output)
+
+        return tree_unflatten((branch_output, *rest), tree_spec)
 
 # hyper connection residual streams
 
@@ -70,10 +109,12 @@ class HyperConnections(Module):
         return expand_fn, reduce_fn
 
     @classmethod
-    def get_init_and_expand_reduce_stream_functions(cls, num_streams):
+    def get_init_and_expand_reduce_stream_functions(cls, num_streams, disable = False):
 
-        init_hyper_conn_fn = partial(cls, num_streams)
-        expand_reduce_fns = cls.get_expand_reduce_stream_functions(num_streams)
+        hyper_conn_klass = cls if not disable else Residual
+
+        init_hyper_conn_fn = partial(hyper_conn_klass, num_streams)
+        expand_reduce_fns = cls.get_expand_reduce_stream_functions(num_streams) if not disable else (identity, identity)
 
         return (init_hyper_conn_fn, *expand_reduce_fns)
 
@@ -106,9 +147,9 @@ class HyperConnections(Module):
         if self.channel_first:
             branch_input = rearrange(branch_input, 'b ... d -> b d ...')
 
-        return branch_input, residuals, beta
+        return branch_input, residuals, dict(beta = beta)
 
-    def depth_connection(self, branch_output, residuals, beta):
+    def depth_connection(self, branch_output, residuals, *, beta):
         # 'depth' connection
 
         if self.channel_first:
@@ -124,10 +165,10 @@ class HyperConnections(Module):
 
     def forward(self, residuals, *branch_args, **branch_kwargs):
 
-        branch_input, residuals, beta = self.width_connection(residuals)
+        branch_input, residuals, residual_kwargs = self.width_connection(residuals)
 
         def add_residual_fn(branch_out):
-            return self.depth_connection(branch_out, residuals, beta)
+            return self.depth_connection(branch_out, residuals, **residual_kwargs)
 
         if not exists(self.branch):
             return branch_input, add_residual_fn
