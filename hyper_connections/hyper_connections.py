@@ -79,8 +79,11 @@ class HyperConnections(Module):
 
         self.branch = branch
 
+        # activation, seemingly results were wishy washy depending on using tanh or not
+
         self.act = nn.Tanh() if tanh else nn.Identity()
-        self.norm = nn.RMSNorm(dim)
+
+        self.norm = nn.RMSNorm(dim) # they used layernorm in paper, but rmsnorm is fine given what we know now
 
         self.num_residual_streams = num_residual_streams
         init_residual_index = default(layer_index, randrange(num_residual_streams)) % num_residual_streams # just choose one random residual stream if layer index not given
@@ -162,6 +165,20 @@ class HyperConnections(Module):
             output = rearrange(output, 'b ... d -> b d ...')
 
         return output
+
+    def decorate_branch(self, branch: Callable):
+        assert not exists(self.branch), 'branch was already wrapped on init'
+
+        def forward_and_add_residual(residual, *args, **kwargs):
+            branch_input, add_residual = self.forward(residual)
+
+            branch_output = branch(branch_input)
+
+            residual = add_residual(branch_output)
+
+            return residual
+
+        return forward_and_add_residual
 
     def forward(self, residuals, *branch_args, **branch_kwargs):
 

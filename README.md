@@ -87,6 +87,8 @@ branch_output = branch(branch_input)
 
 residual = add_residual(branch_output)
 
+# or you can do it in one line as so -> residual = hyper_conn.decorate_branch(branch)(residual)
+
 # 4. reduce 4 streams with a summation, this has to be done after your for loop trunk
 
 residual = reduce_stream(residual)
