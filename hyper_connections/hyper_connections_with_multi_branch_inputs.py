@@ -12,8 +12,6 @@ from torch.utils._pytree import tree_flatten, tree_unflatten
 
 from einops import rearrange, repeat, reduce, einsum
 
-from beartype import beartype
-
 """
 ein notation:
 b - batch
@@ -65,7 +63,6 @@ def get_init_and_expand_reduce_stream_functions(cls, num_streams, disable = Fals
 # hyper connection residual streams
 
 class HyperConnections(Module):
-    @beartype
     def __init__(
         self,
         num_residual_streams,

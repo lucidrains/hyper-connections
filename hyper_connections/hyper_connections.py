@@ -12,8 +12,6 @@ from torch.utils._pytree import tree_flatten, tree_unflatten
 
 from einops import rearrange, repeat, reduce, einsum
 
-from beartype import beartype
-
 """
 ein notation:
 b - batch
