@@ -13,8 +13,6 @@ from torch.utils._pytree import tree_flatten, tree_unflatten
 from einops import rearrange, repeat, reduce, einsum
 from einops.layers.torch import Rearrange
 
-from beartype import beartype
-
 """
 ein notation:
 b - batch
@@ -95,7 +93,6 @@ class ProjActScale(Module):
 # residual base class
 
 class Residual(Module):
-    @beartype
     def __init__(
         self,
         *args,
@@ -148,7 +145,6 @@ class Residual(Module):
 InputPathType = int | str  # the path to the second residual stream, where `int` points to *args[`int`] and `str` points to **kwargs[`str`] - `int` needs to be > 0, as 0 is the default input residual stream
 
 class HyperConnections(Module):
-    @beartype
     def __init__(
         self,
         num_residual_streams,

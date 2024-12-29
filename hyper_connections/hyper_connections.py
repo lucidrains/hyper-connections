@@ -12,8 +12,6 @@ from torch.utils._pytree import tree_flatten, tree_unflatten
 
 from einops import rearrange, repeat, reduce, einsum
 
-from beartype import beartype
-
 """
 ein notation:
 b - batch
@@ -70,7 +68,6 @@ class RMSNorm(Module):
 # residual base class
 
 class Residual(Module):
-    @beartype
     def __init__(
         self,
         *args,
@@ -121,7 +118,6 @@ class Residual(Module):
 # hyper connection residual streams
 
 class HyperConnections(Module):
-    @beartype
     def __init__(
         self,
         num_residual_streams,
