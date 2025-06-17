@@ -100,6 +100,12 @@ To compare hyper connections to plain residual without changing the code, just p
 get_init_and_expand_reduce_stream_functions(4, disable = True)
 ```
 
+To use the fractionated feature dimensions proposed in [a follow up paper](https://arxiv.org/abs/2503.14125) by same authors, just instantiate with `num_fracs` greater than `1` as so
+
+```python
+get_init_and_expand_reduce_stream_functions(1, num_fracs = 4) # also allows you to mix streams and fractions of feature dimension
+```
+
 ## Citation
 
 ```bibtex
@@ -117,5 +123,16 @@ get_init_and_expand_reduce_stream_functions(4, disable = True)
 @misc{Rubin2024,
     author  = {Ohad Rubin},
     url     = {https://medium.com/@ohadrubin/exploring-weight-decay-in-layer-normalization-challenges-and-a-reparameterization-solution-ad4d12c24950}
+}
+```
+
+```bibtex
+@article{Zhu2025FracConnectionsFE,
+    title   = {Frac-Connections: Fractional Extension of Hyper-Connections},
+    author  = {Defa Zhu and Hongzhi Huang and Jundong Zhou and Zihao Huang and Yutao Zeng and Banggu Wu and Qiyang Min and Xun Zhou},
+    journal = {ArXiv},
+    year    = {2025},
+    volume  = {abs/2503.14125},
+    url     = {https://api.semanticscholar.org/CorpusID:277104144}
 }
 ```
