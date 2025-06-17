@@ -67,8 +67,10 @@ def get_init_and_expand_reduce_stream_functions(
     num_fracs = 1,
     dim = None,
     add_stream_embed = False,
-    disable = False
+    disable = None
 ):
+    disable = default(disable, num_streams == 1 and num_fracs == 1)
+
     hyper_conn_klass = HyperConnections if not disable else Residual
 
     init_hyper_conn_fn = partial(hyper_conn_klass, num_streams, num_fracs = num_fracs)

@@ -49,7 +49,9 @@ def get_expand_reduce_stream_functions(num_streams, disable = False):
 
     return expand_fn, reduce_fn
 
-def get_init_and_expand_reduce_stream_functions(num_streams, disable = False):
+def get_init_and_expand_reduce_stream_functions(num_streams, disable = None):
+
+    disable = default(disable, num_streams == 1)
 
     hyper_conn_klass = HyperConnections if not disable else Residual
 
