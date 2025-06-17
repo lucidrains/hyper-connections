@@ -3,8 +3,12 @@ import pytest
 import torch
 from torch import nn
 
+@pytest.mark.parametrize('num_fracs', (1, 4))
 @pytest.mark.parametrize('disable', (False, True))
-def test_readme(disable):
+def test_readme(
+    num_fracs,
+    disable
+):
 
     # a single branch layer
 
@@ -20,7 +24,7 @@ def test_readme(disable):
 
     from hyper_connections import get_init_and_expand_reduce_stream_functions
 
-    init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(4, disable = disable)
+    init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(4, num_fracs = num_fracs, disable = disable)
 
     # 1. wrap your branch function
 

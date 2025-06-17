@@ -5,13 +5,13 @@ from functools import partial
 from random import randrange
 
 import torch
-from torch import nn
-from torch.nn import Module
+from torch import nn, cat
 import torch.nn.functional as F
+from torch.nn import Module, Sequential
 from torch.utils._pytree import tree_flatten, tree_unflatten
 
 from einops import rearrange, repeat, reduce, einsum
-from einops.layers.torch import Reduce
+from einops.layers.torch import Rearrange, Reduce
 
 """
 ein notation:
@@ -19,6 +19,7 @@ b - batch
 d - feature dimension
 s - residual streams
 t - residual streams + num branch inputs
+f - number of fractions (division of feature dimension space)
 v - number of views for branch input
 """
 
@@ -26,6 +27,9 @@ v - number of views for branch input
 
 def exists(v):
     return v is not None
+
+def divisible_by(num, den):
+    return (num % den) == 0
 
 def default(v, d):
     return v if exists(v) else d
@@ -38,8 +42,12 @@ def add(x, y):
 
 # main functions
 
-def get_expand_reduce_stream_functions(num_streams, add_stream_embed = False, dim = None, disable = False):
-
+def get_expand_reduce_stream_functions(
+    num_streams,
+    add_stream_embed = False,
+    dim = None,
+    disable = False
+):
     if num_streams == 1 or disable:
         return (nn.Identity(), nn.Identity())
 
@@ -54,11 +62,16 @@ def get_expand_reduce_stream_functions(num_streams, add_stream_embed = False, di
 
     return expand_fn, reduce_fn
 
-def get_init_and_expand_reduce_stream_functions(num_streams, dim = None, add_stream_embed = False, disable = False):
-
+def get_init_and_expand_reduce_stream_functions(
+    num_streams,
+    num_fracs = 1,
+    dim = None,
+    add_stream_embed = False,
+    disable = False
+):
     hyper_conn_klass = HyperConnections if not disable else Residual
 
-    init_hyper_conn_fn = partial(hyper_conn_klass, num_streams)
+    init_hyper_conn_fn = partial(hyper_conn_klass, num_streams, num_fracs = num_fracs)
     expand_reduce_fns = get_expand_reduce_stream_functions(num_streams, add_stream_embed = add_stream_embed, dim = dim, disable = disable)
 
     if exists(dim):
@@ -93,13 +106,24 @@ class Residual(Module):
         self.branch = branch
         self.residual_transform = default(residual_transform, nn.Identity())
 
-    def width_connection(self, residuals):
+    def width_connection(
+        self,
+        residuals
+    ):
         return residuals, residuals, dict()
 
-    def depth_connection(self, branch_output, residuals):
+    def depth_connection(
+        self,
+        branch_output,
+        residuals,
+
+    ):
         return branch_output + self.residual_transform(residuals)
 
-    def decorate_branch(self, branch: Callable):
+    def decorate_branch(
+        self,
+        branch: Callable
+    ):
         assert not exists(self.branch), 'branch was already wrapped on init'
 
         def forward_and_add_residual(residual, *args, **kwargs):
@@ -113,7 +137,12 @@ class Residual(Module):
 
         return forward_and_add_residual
 
-    def forward(self, residuals, *branch_args, **branch_kwargs):
+    def forward(
+        self,
+        residuals,
+        *branch_args,
+        **branch_kwargs
+    ):
 
         branch_input, residuals, residual_kwargs = self.width_connection(residuals)
 
@@ -145,9 +174,10 @@ class HyperConnections(Module):
         channel_first = False,
         dropout = 0.,
         residual_transform: Module | None = None, # to support resnet blocks where dimension in not equal to dimension out - usually a residual conv
-        add_branch_out_to_residual = True, # will disable depth connections (weighted residual sum with beta) if set False
-        num_input_views = 1, # allow for the branch module to receive multiple input views, dimension placed on the very left (before batch)
-        depth_residual_fn = add
+        add_branch_out_to_residual = True,  # will disable depth connections (weighted residual sum with beta) if set False
+        num_input_views = 1,                # allow for the branch module to receive multiple input views, dimension placed on the very left (before batch)
+        depth_residual_fn = add,
+        num_fracs = 1                       # https://arxiv.org/abs/2503.14125
     ):
         """
         Appendix J, Algorithm2 in - https://arxiv.org/abs/2409.19606
@@ -160,12 +190,33 @@ class HyperConnections(Module):
 
         self.act = nn.Tanh() if tanh else nn.Identity()
 
-        self.norm = RMSNorm(dim) # they used layernorm in paper, but rmsnorm is fine given what we know now
+        # frac-connections paper - num_fracs > 1 will be the `m` in their paper https://arxiv.org/abs/2503.14125
+
+        assert num_fracs >= 1
+
+        self.num_fracs = num_fracs
+        self.has_fracs = num_fracs > 1
+
+        self.split_fracs = Rearrange('b ... (f d) -> b ... f d', f = num_fracs)
+        self.merge_fracs = Rearrange('b ... f d -> b ... (f d)')
+
+        assert divisible_by(dim, num_fracs), f'feature dimension ({dim}) must be divisible by the `num_fracs` ({num_fracs})'
+
+        dim //= num_fracs # effective dim handled in dimension is feature dimension divided by num fractions
+
+        # they used layernorm in paper, but rmsnorm is fine given what we know now
+
+        self.norm = RMSNorm(dim)
 
         assert num_residual_streams > 0, '`num_residual_streams` must be greater than 0'
 
         self.num_residual_streams = num_residual_streams
         init_residual_index = default(layer_index, randrange(num_residual_streams)) % num_residual_streams # just choose one random residual stream if layer index not given
+
+        # handle the parameter dimensions, which may require (num_residuals x num_fractions) - generalizing hyper + frac connections
+
+        num_residual_streams_fracs = num_residual_streams * num_fracs
+        num_input_views_fracs = num_input_views * num_fracs
 
         # width num residual streams
 
@@ -174,12 +225,12 @@ class HyperConnections(Module):
 
         # width connection
 
-        init_alpha0 = torch.zeros((num_residual_streams, num_input_views))
+        init_alpha0 = torch.zeros((num_residual_streams_fracs, num_input_views_fracs))
         init_alpha0[init_residual_index, :] = 1.
 
-        self.static_alpha = nn.Parameter(torch.cat([init_alpha0, torch.eye(num_residual_streams)], dim = 1))
+        self.static_alpha = nn.Parameter(cat((init_alpha0, torch.eye(num_residual_streams_fracs)), dim = 1))
 
-        self.dynamic_alpha_fn = nn.Parameter(torch.zeros(dim, num_residual_streams + num_input_views))
+        self.dynamic_alpha_fn = nn.Parameter(torch.zeros(dim, num_residual_streams_fracs + num_input_views_fracs))
         self.dynamic_alpha_scale = nn.Parameter(torch.ones(()) * 1e-2)
 
         # depth connection related (beta)
@@ -187,8 +238,11 @@ class HyperConnections(Module):
         self.add_branch_out_to_residual = add_branch_out_to_residual
 
         if add_branch_out_to_residual:
-            self.static_beta = nn.Parameter(torch.ones(num_residual_streams))
-            self.dynamic_beta_fn = nn.Parameter(torch.zeros(dim))
+            self.static_beta = nn.Parameter(torch.ones(num_residual_streams_fracs))
+
+            dynamic_beta_shape = (dim,) if num_fracs == 1 else (dim, num_fracs) # preserve backwards compat
+            self.dynamic_beta_fn = nn.Parameter(torch.zeros(dynamic_beta_shape))
+
             self.dynamic_beta_scale = nn.Parameter(torch.ones(()) * 1e-2)
 
         # dropouts
@@ -209,16 +263,30 @@ class HyperConnections(Module):
 
         self.depth_residual_fn = depth_residual_fn
 
-    def width_connection(self, residuals):
+    def width_connection(
+        self,
+        residuals
+    ):
+        streams = self.num_residual_streams
 
         maybe_transformed_residuals = self.residual_transform(residuals)
 
         # width connection
 
+        # handle channel first
+
         if self.channel_first:
             residuals = rearrange(residuals, 'b d ... -> b ... d')
 
-        residuals = rearrange(residuals, '(b s) ... d -> b ... s d', s = self.num_residual_streams)
+        # split out fractions
+
+        residuals = self.split_fracs(residuals)
+
+        # split out streams
+
+        residuals = rearrange(residuals, '(b s) ... d -> b ... s d', s = streams)
+
+        # norm
 
         normed = self.norm(residuals)
 
@@ -226,7 +294,12 @@ class HyperConnections(Module):
 
         wc_weight = self.act(normed @ self.dynamic_alpha_fn)
         dynamic_alpha = wc_weight * self.dynamic_alpha_scale
-        alpha = dynamic_alpha + self.static_alpha
+
+        static_alpha = rearrange(self.static_alpha, '(f s) d -> f s d', s = streams)
+
+        alpha = dynamic_alpha + static_alpha
+
+        alpha = self.split_fracs(alpha) # (batch, seq, fracs1, streams, fracs2, input + residual streams)
 
         # beta for weights from branch output back to residual streams
 
@@ -234,10 +307,17 @@ class HyperConnections(Module):
 
         if self.add_branch_out_to_residual:
             dc_weight = self.act(normed @ self.dynamic_beta_fn)
-            dynamic_beta = dc_weight * self.dynamic_beta_scale
-            beta = dynamic_beta + self.static_beta
 
-        mix_h = einsum(alpha, residuals, '... s t, ... s d -> ... t d')
+            if not self.has_fracs:
+                dc_weight = rearrange(dc_weight, '... -> ... 1')
+
+            dynamic_beta = dc_weight * self.dynamic_beta_scale
+
+            static_beta = rearrange(self.static_beta, '... (s f) -> ... s f', s = streams)
+
+            beta = dynamic_beta + static_beta
+
+        mix_h = einsum(alpha, residuals, '... f1 s f2 t, ... f1 s d -> ... f2 t d')
 
         if self.num_input_views == 1:
             branch_input, residuals = mix_h[..., 0, :], mix_h[..., 1:, :]
@@ -248,18 +328,39 @@ class HyperConnections(Module):
         if self.channel_first:
             branch_input = rearrange(branch_input, 'b ... d -> b d ...')
 
+        # maybe merge fractions back
+
+        branch_input = self.merge_fracs(branch_input)
+
         return branch_input, maybe_transformed_residuals, dict(beta = beta)
 
-    def depth_connection(self, branch_output, residuals, *, beta):
+    def depth_connection(
+        self,
+        branch_output,
+        residuals,
+        *,
+        beta
+    ):
         assert self.add_branch_out_to_residual
+
+        # maybe split fractions
+
+        branch_output = self.split_fracs(branch_output)
 
         # 'depth' connection
 
         if self.channel_first:
             branch_output = rearrange(branch_output, 'b d ... -> b ... d')
 
-        output = einsum(branch_output, beta, 'b ... d, b ... s -> b ... s d')
+        output = einsum(branch_output, beta, 'b ... f1 d, b ... f1 s f2 -> b ... f2 s d')
+
         output = rearrange(output, 'b ... s d -> (b s) ... d')
+
+        # merge merge back fractions
+
+        output = self.merge_fracs(output)
+
+        # channel first
 
         if self.channel_first:
             output = rearrange(output, 'b ... d -> b d ...')
@@ -268,7 +369,10 @@ class HyperConnections(Module):
 
         return self.dropout(residuals)
 
-    def decorate_branch(self, branch: Callable):
+    def decorate_branch(
+        self,
+        branch: Callable
+    ):
         assert not exists(self.branch), 'branch was already wrapped on init'
 
         def forward_and_add_residual(residual, *args, **kwargs):
@@ -282,7 +386,12 @@ class HyperConnections(Module):
 
         return forward_and_add_residual
 
-    def forward(self, residuals, *branch_args, **branch_kwargs):
+    def forward(
+        self,
+        residuals,
+        *branch_args,
+        **branch_kwargs
+    ):
 
         branch_input, residuals, residual_kwargs = self.width_connection(residuals)
 
