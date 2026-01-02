@@ -136,3 +136,15 @@ get_init_and_expand_reduce_stream_functions(1, num_fracs = 4) # also allows you 
     url     = {https://api.semanticscholar.org/CorpusID:277104144}
 }
 ```
+
+```bibtex
+@misc{xie2025mhcmanifoldconstrainedhyperconnections,
+    title   = {mHC: Manifold-Constrained Hyper-Connections}, 
+    author  = {Zhenda Xie and Yixuan Wei and Huanqi Cao and Chenggang Zhao and Chengqi Deng and Jiashi Li and Damai Dai and Huazuo Gao and Jiang Chang and Liang Zhao and Shangyan Zhou and Zhean Xu and Zhengyan Zhang and Wangding Zeng and Shengding Hu and Yuqing Wang and Jingyang Yuan and Lean Wang and Wenfeng Liang},
+    year    = {2025},
+    eprint  = {2512.24880},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.CL},
+    url     = {https://arxiv.org/abs/2512.24880}, 
+}
+```

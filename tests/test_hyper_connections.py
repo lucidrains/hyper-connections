@@ -5,9 +5,11 @@ from torch import nn
 
 @pytest.mark.parametrize('num_fracs', (1, 4))
 @pytest.mark.parametrize('disable', (False, True))
+@pytest.mark.parametrize('manifold_constrained', (False, True))
 def test_readme(
     num_fracs,
-    disable
+    disable,
+    manifold_constrained
 ):
 
     # a single branch layer
@@ -22,7 +24,10 @@ def test_readme(
 
     # after, say 4 streams in paper
 
-    from hyper_connections import get_init_and_expand_reduce_stream_functions
+    if manifold_constrained:
+        from hyper_connections.manifold_constrained_hyper_connections import get_init_and_expand_reduce_stream_functions
+    else:
+        from hyper_connections import get_init_and_expand_reduce_stream_functions
 
     init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(4, num_fracs = num_fracs, disable = disable)
 
