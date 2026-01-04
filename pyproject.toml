@@ -1,6 +1,6 @@
 [project]
 name = "hyper-connections"
-version = "0.3.0"
+version = "0.3.4"
 description = "Hyper-Connections"
 authors = [
     { name = "Phil Wang", email = "lucidrains@gmail.com" }

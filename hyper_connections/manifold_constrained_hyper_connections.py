@@ -54,6 +54,8 @@ def l1norm(t, dim):
     return F.normalize(t, p = 1, dim = dim)
 
 def sinkhorn_knopps(log_alpha, iters = 20):
+    log_alpha = log_alpha - log_alpha.amax(dim = -2, keepdim = True).detach()
+
     alpha = log_alpha.exp()
 
     for _ in range(iters):
@@ -89,13 +91,15 @@ def get_init_and_expand_reduce_stream_functions(
     num_fracs = 1,
     dim = None,
     add_stream_embed = False,
-    disable = None
+    disable = None,
+    sinkhorn_iters = 20,
+    **kwargs
 ):
     disable = default(disable, num_streams == 1 and num_fracs == 1)
 
     hyper_conn_klass = ManifoldConstrainedHyperConnections if not disable else Residual
 
-    init_hyper_conn_fn = partial(hyper_conn_klass, num_streams, num_fracs = num_fracs)
+    init_hyper_conn_fn = partial(hyper_conn_klass, num_streams, num_fracs = num_fracs, sinkhorn_iters = sinkhorn_iters, **kwargs)
     expand_reduce_fns = get_expand_reduce_stream_functions(num_streams, add_stream_embed = add_stream_embed, dim = dim, disable = disable)
 
     if exists(dim):
