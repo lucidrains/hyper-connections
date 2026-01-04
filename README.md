@@ -4,6 +4,8 @@
 
 Attempt to make multiple residual streams, proposed in [Hyper-Connections paper](https://arxiv.org/abs/2409.19606) out of Bytedance AI lab, accessible as an easy to use library, as well as for following any new research in this direction.
 
+[Write up on mHC from Subhadip Mitra](https://subhadipmitra.com/blog/2026/deepseek-mhc-manifold-constrained-hyper-connections/)
+
 ## Install
 
 ```bash
