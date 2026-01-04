@@ -54,6 +54,8 @@ def l1norm(t, dim):
     return F.normalize(t, p = 1, dim = dim)
 
 def sinkhorn_knopps(log_alpha, iters = 20):
+    log_alpha = log_alpha - log_alpha.amax(dim = -2, keepdim = True).detach()
+
     alpha = log_alpha.exp()
 
     for _ in range(iters):
