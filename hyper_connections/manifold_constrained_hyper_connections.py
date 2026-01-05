@@ -200,7 +200,8 @@ class ManifoldConstrainedHyperConnections(Module):
         num_input_views = 1,                # allow for the branch module to receive multiple input views, dimension placed on the very left (before batch)
         depth_residual_fn = add,
         num_fracs = 1,                      # https://arxiv.org/abs/2503.14125
-        sinkhorn_iters = 20
+        sinkhorn_iters = 20,
+        forward_method_names: tuple[str, ...] = (),
     ):
         """
         Appendix J, Algorithm2 in - https://arxiv.org/abs/2409.19606
@@ -289,6 +290,16 @@ class ManifoldConstrainedHyperConnections(Module):
         # needed for memory lanes a la RMT / LMM
 
         self.depth_residual_fn = depth_residual_fn
+
+        # forwarding method names
+
+        self.forward_method_names = forward_method_names
+
+        for forward_method_name in self.forward_method_names:
+            assert not hasattr(self, forward_method_name)
+
+            fn = getattr(self.branch, forward_method_name)
+            setattr(self, forward_method_name, fn)
 
     def width_connection(
         self,
