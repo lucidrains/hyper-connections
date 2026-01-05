@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from torch.nn import Module, Sequential
 from torch.utils._pytree import tree_flatten, tree_unflatten
 
-from einops import rearrange, repeat, reduce, einsum, pack, unpack
+from einops import rearrange, repeat, reduce, einsum
 from einops.layers.torch import Rearrange, Reduce
 
 """
@@ -39,14 +39,6 @@ def identity(t):
 
 def add(x, y):
     return x + y
-
-def pack_one_with_inverse(t, pattern):
-    packed, packed_shape = pack([t], pattern)
-
-    def inverse(out):
-        return unpack(out, packed_shape, pattern)[0]
-
-    return packed, inverse
 
 # sinkhorn
 
@@ -320,11 +312,11 @@ class ManifoldConstrainedHyperConnections(Module):
 
         # norm
 
-        flattened_residuals, inverse_pack = pack_one_with_inverse(residuals, 'b n *')
+        normed = rearrange(residuals, 'b ... f s d -> b ... (f s d)')
 
-        normed = self.norm(flattened_residuals) # they norm across flattened stream + dimension?
+        normed = self.norm(normed)
 
-        normed = inverse_pack(normed)
+        normed = rearrange(normed, 'b ... (f s d) -> b ... f s d', f = self.num_fracs, s = streams)
 
         # alpha for weighted sum of residuals going into branch
 
