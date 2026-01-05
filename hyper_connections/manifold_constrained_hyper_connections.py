@@ -222,7 +222,7 @@ class ManifoldConstrainedHyperConnections(Module):
 
         # they used layernorm in paper, but rmsnorm is fine given what we know now
 
-        self.norm = RMSNorm(dim * num_residual_streams * num_fracs)
+        self.norm = RMSNorm(dim)
 
         assert num_residual_streams > 0, '`num_residual_streams` must be greater than 0'
 
@@ -312,11 +312,7 @@ class ManifoldConstrainedHyperConnections(Module):
 
         # norm
 
-        flattened_residuals = rearrange(residuals, 'b ... f s d -> b ... (f s d)')
-
-        normed = self.norm(flattened_residuals)
-
-        normed = rearrange(normed, 'b ... (f s d) -> b ... f s d', f = self.num_fracs, s = streams)
+        normed = self.norm(residuals)
 
         # alpha for weighted sum of residuals going into branch
 
