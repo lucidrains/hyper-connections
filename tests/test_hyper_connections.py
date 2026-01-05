@@ -231,3 +231,24 @@ def test_channel_first_hyper_connection(disable):
     after_residual = reduce_stream(residual)
 
     assert before_residual.shape == after_residual.shape
+
+def test_mhc_dtype_restoration():
+    from hyper_connections.manifold_constrained_hyper_connections import ManifoldConstrainedHyperConnections
+
+    mhc = ManifoldConstrainedHyperConnections(
+        num_residual_streams = 4,
+        dim = 64,
+        add_branch_out_to_residual = True
+    )
+
+    residual = torch.randn(4, 1, 64).half()
+
+    branch_input, _, residual_kwargs = mhc.width_connection(residual)
+
+    assert branch_input.dtype == torch.half
+    assert residual_kwargs['beta'].dtype == torch.half
+
+    branch_output = torch.randn_like(branch_input).half()
+    residual = mhc.depth_connection(branch_output, residual, **residual_kwargs)
+
+    assert residual.dtype == torch.half

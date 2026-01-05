@@ -46,6 +46,9 @@ def l1norm(t, dim):
     return F.normalize(t, p = 1, dim = dim)
 
 def sinkhorn_knopps(log_alpha, iters = 20):
+    dtype = log_alpha.dtype
+    log_alpha = log_alpha.float()
+
     log_alpha = log_alpha - log_alpha.amax(dim = -2, keepdim = True).detach()
 
     alpha = log_alpha.exp()
@@ -54,7 +57,7 @@ def sinkhorn_knopps(log_alpha, iters = 20):
         alpha = l1norm(alpha, dim = -2)
         alpha = l1norm(alpha, dim = -1)
 
-    return alpha
+    return alpha.to(dtype)
 
 # main functions
 
@@ -316,17 +319,21 @@ class ManifoldConstrainedHyperConnections(Module):
 
         # alpha for weighted sum of residuals going into branch
 
-        wc_weight = normed @ self.dynamic_alpha_fn
+        dtype = residuals.dtype
 
-        pre_branch_scale = repeat(self.pre_branch_scale, '1 -> s', s = self.num_fracs)
-        residual_scale = repeat(self.residual_scale, '1 -> s', s = self.num_fracs * streams)
+        normed = normed.float()
+
+        wc_weight = normed @ self.dynamic_alpha_fn.float()
+
+        pre_branch_scale = repeat(self.pre_branch_scale.float(), '1 -> s', s = self.num_fracs)
+        residual_scale = repeat(self.residual_scale.float(), '1 -> s', s = self.num_fracs * streams)
         alpha_scale = cat((pre_branch_scale, residual_scale))
 
         alpha_scale = repeat(alpha_scale, 'n -> (v n)', v = self.num_input_views)
 
         dynamic_alpha = wc_weight * alpha_scale
 
-        static_alpha = rearrange(self.static_alpha, '(f s) d -> f s d', s = streams)
+        static_alpha = rearrange(self.static_alpha.float(), '(f s) d -> f s d', s = streams)
 
         alpha = dynamic_alpha + static_alpha
 
@@ -351,20 +358,20 @@ class ManifoldConstrainedHyperConnections(Module):
         beta = None
 
         if self.add_branch_out_to_residual:
-            dc_weight = normed @ self.dynamic_beta_fn
+            dc_weight = normed @ self.dynamic_beta_fn.float()
 
             dc_weight = dc_weight.sigmoid() * 2 # sigmoid * 2 for "H_post", corresponding to dc weight in original paper
 
             if not self.has_fracs:
                 dc_weight = rearrange(dc_weight, '... -> ... 1')
 
-            dynamic_beta = dc_weight * self.h_post_scale
+            dynamic_beta = dc_weight * self.h_post_scale.float()
 
-            static_beta = rearrange(self.static_beta, '... (s f) -> ... s f', s = streams)
+            static_beta = rearrange(self.static_beta.float(), '... (s f) -> ... s f', s = streams)
 
             beta = dynamic_beta + static_beta
 
-        mix_h = einsum(alpha, residuals, '... f1 s f2 t, ... f1 s d -> ... f2 t d')
+        mix_h = einsum(alpha, residuals.float(), '... f1 s f2 t, ... f1 s d -> ... f2 t d')
 
         if self.num_input_views == 1:
             branch_input, residuals = mix_h[..., 0, :], mix_h[..., 1:, :]
@@ -378,6 +385,12 @@ class ManifoldConstrainedHyperConnections(Module):
         # maybe merge fractions back
 
         branch_input = self.merge_fracs(branch_input)
+
+        branch_input = branch_input.to(dtype)
+        residuals = residuals.to(dtype)
+
+        if exists(beta):
+            beta = beta.to(dtype)
 
         return branch_input, maybe_transformed_residuals, dict(beta = beta)
 
@@ -399,7 +412,9 @@ class ManifoldConstrainedHyperConnections(Module):
         if self.channel_first:
             branch_output = rearrange(branch_output, 'b d ... -> b ... d')
 
-        output = einsum(branch_output, beta, 'b ... f1 d, b ... f1 s f2 -> b ... f2 s d')
+        dtype = residuals.dtype
+
+        output = einsum(branch_output.float(), beta.float(), 'b ... f1 d, b ... f1 s f2 -> b ... f2 s d')
 
         output = rearrange(output, 'b ... s d -> (b s) ... d')
 
@@ -412,7 +427,7 @@ class ManifoldConstrainedHyperConnections(Module):
         if self.channel_first:
             output = rearrange(output, 'b ... d -> b d ...')
 
-        residuals = self.depth_residual_fn(output, residuals)
+        residuals = self.depth_residual_fn(output.to(dtype), residuals)
 
         return self.dropout(residuals)
 
