@@ -371,8 +371,6 @@ class ManifoldConstrainedHyperConnections(Module):
         if self.add_branch_out_to_residual:
             dc_weight = normed @ self.dynamic_beta_fn.float()
 
-            dc_weight = dc_weight.sigmoid() * 2 # sigmoid * 2 for "H_post", corresponding to dc weight in original paper
-
             if not self.has_fracs:
                 dc_weight = rearrange(dc_weight, '... -> ... 1')
 
@@ -381,6 +379,8 @@ class ManifoldConstrainedHyperConnections(Module):
             static_beta = rearrange(self.static_beta.float(), '... (s f) -> ... s f', s = streams)
 
             beta = dynamic_beta + static_beta
+
+            beta = beta.sigmoid() * 2 # for "H_post" manifold constraint
 
         mix_h = einsum(alpha, residuals.float(), '... f1 s f2 t, ... f1 s d -> ... f2 t d')
 
