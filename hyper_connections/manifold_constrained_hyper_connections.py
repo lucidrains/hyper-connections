@@ -486,6 +486,8 @@ class ManifoldConstrainedHyperConnections(Module):
 
         return add_residual_fn(branch_output)
 
+mHC = ManifoldConstrainedHyperConnections
+
 ManifoldConstrainedHyperConnections.get_expand_reduce_stream_functions = staticmethod(get_expand_reduce_stream_functions)
 ManifoldConstrainedHyperConnections.get_init_and_expand_reduce_stream_functions = staticmethod(get_init_and_expand_reduce_stream_functions)
 
