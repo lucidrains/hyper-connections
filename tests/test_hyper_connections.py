@@ -147,49 +147,6 @@ def test_multi_input_hyper_connections(disable):
     assert residual.shape == (3, 1024, 512)
 
 @pytest.mark.parametrize('disable', (False, True))
-def test_residual_transform(disable):
-
-    # a single branch layer
-
-    branch = nn.Sequential(
-        nn.Conv2d(512, 512, 3, padding = 1),
-        nn.SiLU(),
-        nn.Conv2d(512, 256, 3, padding = 1)
-    )
-
-    residual_fn = nn.Conv2d(512, 256, 1)
-
-    # before
-
-    residual = torch.randn(2, 512, 16, 16)
-
-    before_residual = branch(residual) + residual_fn(residual)
-
-    # after, say 4 streams in paper
-
-    from hyper_connections import get_init_and_expand_reduce_stream_functions
-
-    init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(4, disable = disable)
-
-    # 1. wrap your branch function
-
-    hyper_conn_branch = init_hyper_conn(dim = 512, branch = branch, channel_first = True, residual_transform = residual_fn)
-
-    # 2. expand to 4 streams, this must be done before your trunk, typically a for-loop with many branch functions
-
-    residual = expand_stream(residual)
-
-    # 3. forward your residual as usual into the wrapped branch function(s)
-
-    residual = hyper_conn_branch(residual) 
-
-    # 4. reduce 4 streams with a summation, this has to be done after your for-loop trunk. for transformer, unsure whether to do before or after final norm
-
-    after_residual = reduce_stream(residual)
-
-    assert before_residual.shape == after_residual.shape
-
-@pytest.mark.parametrize('disable', (False, True))
 def test_channel_first_hyper_connection(disable):
 
     # a single branch layer
@@ -197,16 +154,14 @@ def test_channel_first_hyper_connection(disable):
     branch = nn.Sequential(
         nn.Conv2d(512, 512, 3, padding = 1),
         nn.SiLU(),
-        nn.Conv2d(512, 256, 3, padding = 1)
+        nn.Conv2d(512, 512, 3, padding = 1)
     )
-
-    residual_fn = nn.Conv2d(512, 256, 1)
 
     # before
 
     residual = torch.randn(2, 512, 16, 16)
 
-    before_residual = branch(residual) + residual_fn(residual)
+    before_residual = branch(residual) + residual
 
     # after, say 4 streams in paper
 
@@ -216,7 +171,7 @@ def test_channel_first_hyper_connection(disable):
 
     # 1. wrap your branch function
 
-    hyper_conn_branch = init_hyper_conn(dim = 512, branch = branch, residual_transform = residual_fn)
+    hyper_conn_branch = init_hyper_conn(dim = 512, branch = branch)
 
     # 2. expand to 4 streams, this must be done before your trunk, typically a for-loop with many branch functions
 

@@ -307,7 +307,7 @@ class ManifoldConstrainedHyperConnections(Module):
     ):
         streams = self.num_residual_streams
 
-        maybe_transformed_residuals = self.residual_transform(residuals)
+        residuals = self.residual_transform(residuals)
 
         # width connection
 
@@ -397,13 +397,14 @@ class ManifoldConstrainedHyperConnections(Module):
 
         branch_input = self.merge_fracs(branch_input)
 
-        branch_input = branch_input.to(dtype)
-        residuals = residuals.to(dtype)
+        residuals = rearrange(residuals, 'b ... f s d -> (b s) ... (f d)')
+
+        branch_input, residuals = tuple(t.to(dtype) for t in (branch_input, residuals))
 
         if exists(beta):
             beta = beta.to(dtype)
 
-        return branch_input, maybe_transformed_residuals, dict(beta = beta)
+        return branch_input, residuals, dict(beta = beta)
 
     def depth_connection(
         self,

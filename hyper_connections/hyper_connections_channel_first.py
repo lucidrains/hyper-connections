@@ -84,7 +84,6 @@ class HyperConnections(Module):
         tanh = True,
         channel_first = True,
         dropout = 0.,
-        residual_transform: Module | None = None, # to support resnet blocks where dimension in not equal to dimension out - usually a residual conv
     ):
         """
         Appendix J, Algorithm2 in - https://arxiv.org/abs/2409.19606
@@ -124,18 +123,11 @@ class HyperConnections(Module):
         self.dynamic_alpha_scale = nn.Parameter(torch.ones(()) * 1e-2)
         self.dynamic_beta_scale = nn.Parameter(torch.ones(()) * 1e-2)
 
-
         # dropouts
 
         self.dropout = nn.Dropout(dropout)
 
-        # maybe residual transform
-
-        self.residual_transform = default(residual_transform, nn.Identity())
-
     def width_connection(self, residuals):
-
-        maybe_transformed_residuals = self.residual_transform(residuals)
 
         # width connection
 
@@ -161,7 +153,9 @@ class HyperConnections(Module):
 
         branch_input, residuals = mix_h[:, 0, ...], mix_h[:, 1:, ...]
 
-        return branch_input, maybe_transformed_residuals, dict(beta = beta)
+        residuals = rearrange(residuals, 'b s d ... -> (b s) d ...')
+
+        return branch_input, residuals, dict(beta = beta)
 
     def depth_connection(self, branch_output, residuals, *, beta):
         # 'depth' connection

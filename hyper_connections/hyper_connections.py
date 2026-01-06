@@ -175,7 +175,6 @@ class HyperConnections(Module):
         tanh = True,
         channel_first = False,
         dropout = 0.,
-        residual_transform: Module | None = None, # to support resnet blocks where dimension in not equal to dimension out - usually a residual conv
         add_branch_out_to_residual = True,  # will disable depth connections (weighted residual sum with beta) if set False
         num_input_views = 1,                # allow for the branch module to receive multiple input views, dimension placed on the very left (before batch)
         depth_residual_fn = add,
@@ -255,10 +254,6 @@ class HyperConnections(Module):
 
         self.channel_first = channel_first
 
-        # maybe residual transform
-
-        self.residual_transform = default(residual_transform, nn.Identity())
-
         # maybe custom depth connection residual function
         # this is to prepare for gating the addition of the branch outputs to the residual streams
         # needed for memory lanes a la RMT / LMM
@@ -270,8 +265,6 @@ class HyperConnections(Module):
         residuals
     ):
         streams = self.num_residual_streams
-
-        maybe_transformed_residuals = self.residual_transform(residuals)
 
         # width connection
 
@@ -334,7 +327,14 @@ class HyperConnections(Module):
 
         branch_input = self.merge_fracs(branch_input)
 
-        return branch_input, maybe_transformed_residuals, dict(beta = beta)
+        # reshape residuals back
+
+        if self.channel_first:
+            residuals = rearrange(residuals, 'b ... f s d -> (b s) (f d) ...')
+        else:
+            residuals = rearrange(residuals, 'b ... f s d -> (b s) ... (f d)')
+
+        return branch_input, residuals, dict(beta = beta)
 
     def depth_connection(
         self,
