@@ -348,21 +348,17 @@ class ManifoldConstrainedHyperConnections(Module):
 
         alpha = dynamic_alpha + static_alpha
 
-        alpha = self.split_fracs(alpha) # (batch, seq, fracs1, streams, fracs2, input + residual streams)
-
         # the alpha is now split and "manifold constrained" with sinkhorn and sigmoid
 
         alpha_pre, alpha_residual = alpha[..., :self.num_input_views], alpha[..., self.num_input_views:]
 
         alpha_pre = alpha_pre.sigmoid()
 
-        alpha_residual = rearrange(alpha_residual, '... (v s1 s2) -> ... v s1 s2', v = self.num_input_views, s1 = streams)
-
         alpha_residual = sinkhorn_knopps(alpha_residual, self.sinkhorn_iters)
 
-        alpha_residual = rearrange(alpha_residual, '... v s1 s2 -> ... (v s1 s2)')
-
         alpha = cat((alpha_pre, alpha_residual), dim = -1)
+
+        alpha = self.split_fracs(alpha) # (batch, seq, fracs1, streams, fracs2, input + residual streams)
 
         # beta for weights from branch output back to residual streams
 
