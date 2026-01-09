@@ -59,6 +59,16 @@ def sinkhorn_knopps(log_alpha, iters = 20):
 
     return alpha.to(dtype)
 
+def log_domain_sinkhorn_knopps(log_alpha, iters = 20):
+    dtype = log_alpha.dtype
+    log_alpha = log_alpha.float()
+
+    for _ in range(iters):
+        log_alpha = log_alpha - log_alpha.logsumexp(dim = -2, keepdim = True)
+        log_alpha = log_alpha - log_alpha.logsumexp(dim = -1, keepdim = True)
+
+    return log_alpha.exp().to(dtype)
+
 # main functions
 
 def get_expand_reduce_stream_functions(
@@ -201,6 +211,7 @@ class ManifoldConstrainedHyperConnections(Module):
         depth_residual_fn = add,
         num_fracs = 1,                      # https://arxiv.org/abs/2503.14125
         sinkhorn_iters = 20,
+        log_domain_sinkhorn = False,
         forward_method_names: tuple[str, ...] = (),
     ):
         """
@@ -272,6 +283,7 @@ class ManifoldConstrainedHyperConnections(Module):
         # sinkhorn related
 
         self.sinkhorn_iters = sinkhorn_iters
+        self.log_domain_sinkhorn = log_domain_sinkhorn
 
         # dropouts
 
@@ -354,7 +366,9 @@ class ManifoldConstrainedHyperConnections(Module):
 
         alpha_pre = alpha_pre.sigmoid()
 
-        alpha_residual = sinkhorn_knopps(alpha_residual, self.sinkhorn_iters)
+        sinkhorn_fn = sinkhorn_knopps if not self.log_domain_sinkhorn else log_domain_sinkhorn_knopps
+
+        alpha_residual = sinkhorn_fn(alpha_residual, self.sinkhorn_iters)
 
         alpha = cat((alpha_pre, alpha_residual), dim = -1)
 
