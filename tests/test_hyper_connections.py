@@ -1,11 +1,12 @@
 import pytest
+param = pytest.mark.parametrize
 
 import torch
 from torch import nn
 
-@pytest.mark.parametrize('num_fracs', (1, 4))
-@pytest.mark.parametrize('disable', (False, True))
-@pytest.mark.parametrize('manifold_constrained', (False, True))
+@param('num_fracs', (1, 4))
+@param('disable', (False, True))
+@param('manifold_constrained', (False, True))
 def test_readme(
     num_fracs,
     disable,
@@ -208,7 +209,11 @@ def test_mhc_dtype_restoration():
 
     assert residual.dtype == torch.half
 
-def test_mhc_vit():
+@param('num_dynamic_alpha_proposals', (1, 2))
+def test_mhc_vit(
+    num_dynamic_alpha_proposals
+):
+
     from hyper_connections.vit import ViT
 
     v = ViT(
@@ -221,7 +226,8 @@ def test_mhc_vit():
         mlp_dim = 2048,
         dropout = 0.1,
         emb_dropout = 0.1,
-        num_residual_streams = 4
+        num_residual_streams = 4,
+        num_dynamic_alpha_proposals = num_dynamic_alpha_proposals
     )
 
     img = torch.randn(1, 3, 256, 256)

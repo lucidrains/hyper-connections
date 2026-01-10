@@ -21,6 +21,7 @@ s - residual streams
 t - residual streams + num branch inputs
 f - number of fractions (division of feature dimension space)
 v - number of views for branch input
+p - proposals
 """
 
 # helper functions
@@ -213,6 +214,7 @@ class ManifoldConstrainedHyperConnections(Module):
         sinkhorn_iters = 20,
         log_domain_sinkhorn = False,
         forward_method_names: tuple[str, ...] = (),
+        num_dynamic_alpha_proposals = 1
     ):
         """
         Appendix J, Algorithm2 in - https://arxiv.org/abs/2409.19606
@@ -256,6 +258,11 @@ class ManifoldConstrainedHyperConnections(Module):
         assert num_input_views >= 1
         self.num_input_views = num_input_views
 
+        # number of dynamic alpha proposals, for averaging Hres across proposals
+
+        self.has_dynamic_alpha_proposals = num_dynamic_alpha_proposals > 1
+        self.num_dynamic_alpha_proposals = num_dynamic_alpha_proposals
+
         # width connection
 
         init_alpha0 = torch.zeros((num_residual_streams_fracs, num_input_views_fracs))
@@ -263,7 +270,7 @@ class ManifoldConstrainedHyperConnections(Module):
 
         self.static_alpha = nn.Parameter(cat((init_alpha0, torch.eye(num_residual_streams_fracs)), dim = 1))
 
-        self.dynamic_alpha_fn = nn.Parameter(torch.zeros(dim, num_residual_streams_fracs + num_input_views_fracs))
+        self.dynamic_alpha_fn = nn.Parameter(torch.zeros(num_dynamic_alpha_proposals, dim, num_residual_streams_fracs + num_input_views_fracs))
 
         self.pre_branch_scale = nn.Parameter(torch.ones(1) * 1e-2)
         self.residual_scale = nn.Parameter(torch.ones(1) * 1e-2)
@@ -346,7 +353,7 @@ class ManifoldConstrainedHyperConnections(Module):
 
         normed = normed.float()
 
-        wc_weight = normed @ self.dynamic_alpha_fn.float()
+        wc_weight = einsum(normed, self.dynamic_alpha_fn.float(), '... d, p d e -> p ... e')
 
         pre_branch_scale = repeat(self.pre_branch_scale.float(), '1 -> s', s = self.num_fracs)
         residual_scale = repeat(self.residual_scale.float(), '1 -> s', s = self.num_fracs * streams)
@@ -371,6 +378,11 @@ class ManifoldConstrainedHyperConnections(Module):
         alpha_residual = sinkhorn_fn(alpha_residual, self.sinkhorn_iters)
 
         alpha = cat((alpha_pre, alpha_residual), dim = -1)
+
+        if self.has_dynamic_alpha_proposals:
+            alpha = reduce(alpha, 'p ... -> ...', 'mean')
+        else:
+            alpha = rearrange(alpha, '1 ... -> ...')
 
         alpha = self.split_fracs(alpha) # (batch, seq, fracs1, streams, fracs2, input + residual streams)
 
