@@ -213,8 +213,10 @@ class ManifoldConstrainedHyperConnections(Module):
         num_fracs = 1,                      # https://arxiv.org/abs/2503.14125
         sinkhorn_iters = 20,
         log_domain_sinkhorn = False,
+        residual_constraint_fn: Callable | None = None,
         forward_method_names: tuple[str, ...] = (),
-        num_dynamic_alpha_proposals = 1
+        num_dynamic_alpha_proposals = 1,
+
     ):
         """
         Appendix J, Algorithm2 in - https://arxiv.org/abs/2409.19606
@@ -287,10 +289,13 @@ class ManifoldConstrainedHyperConnections(Module):
 
             self.h_post_scale = nn.Parameter(torch.ones(()) * 1e-2)
 
-        # sinkhorn related
+        # Hres constraint related
+        # by default is sinkhorn
 
-        self.sinkhorn_iters = sinkhorn_iters
-        self.log_domain_sinkhorn = log_domain_sinkhorn
+        self.residual_constraint_fn = default(
+            residual_constraint_fn,
+            partial(sinkhorn_knopps if not log_domain_sinkhorn else log_domain_sinkhorn_knopps, iters = sinkhorn_iters)
+        )
 
         # dropouts
 
@@ -373,9 +378,7 @@ class ManifoldConstrainedHyperConnections(Module):
 
         alpha_pre = alpha_pre.sigmoid()
 
-        sinkhorn_fn = sinkhorn_knopps if not self.log_domain_sinkhorn else log_domain_sinkhorn_knopps
-
-        alpha_residual = sinkhorn_fn(alpha_residual, self.sinkhorn_iters)
+        alpha_residual = self.residual_constraint_fn(alpha_residual)
 
         alpha = cat((alpha_pre, alpha_residual), dim = -1)
 
