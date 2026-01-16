@@ -78,7 +78,7 @@ def get_expand_reduce_stream_functions(
     dim = None,
     disable = False
 ):
-    if num_streams == 1 or disable:
+    if disable:
         return (nn.Identity(), nn.Identity())
 
     if add_stream_embed:

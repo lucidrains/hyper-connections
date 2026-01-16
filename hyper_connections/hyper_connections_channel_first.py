@@ -41,7 +41,7 @@ def identity(t):
 
 def get_expand_reduce_stream_functions(num_streams, disable = False):
 
-    if num_streams == 1 or disable:
+    if disable:
         return (nn.Identity(), nn.Identity())
 
     expand_fn = Reduce(pattern = 'b ... -> (b s) ...', reduction = 'repeat', s = num_streams)

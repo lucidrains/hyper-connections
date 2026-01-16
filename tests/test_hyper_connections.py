@@ -234,3 +234,49 @@ def test_mhc_vit(
 
     preds = v(img) # (1, 1000)
     assert preds.shape == (1, 1000)
+
+@param('num_fracs', (1, 2))
+@param('num_streams', (1, 3))
+@param('disable', (False, True))
+@param('add_attn_pool_reduce_stream', (False, True))
+def test_mhcv2(
+    num_fracs,
+    num_streams,
+    disable,
+    add_attn_pool_reduce_stream
+):
+    import torch
+    from torch import nn
+    # a single branch layer
+
+    branch = nn.Linear(512, 512)
+
+    # before
+
+    residual = torch.randn(2, 1024, 512)
+
+    residual = branch(residual) + residual
+
+    # after, say 4 streams in paper
+
+    from hyper_connections.mHCv2 import get_init_and_expand_reduce_stream_functions
+
+    init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(num_streams, dim = 512, num_fracs = num_fracs, disable = disable, add_attn_pool_reduce_stream = add_attn_pool_reduce_stream)
+
+    # 1. wrap your branch function
+
+    hyper_conn_branch = init_hyper_conn(dim = 512, branch = branch)
+
+    # 2. expand to 4 streams, this must be done before your trunk, typically a for-loop with many branch functions
+
+    residual = expand_stream(residual)
+
+    # 3. forward your residual as usual into the wrapped branch function(s)
+
+    residual = hyper_conn_branch(residual)
+
+    # 4. reduce 4 streams with a summation, this has to be done after your for-loop trunk. for transformer, unsure whether to do before or after final norm
+
+    residual = reduce_stream(residual)
+
+    assert residual.shape == (2, 1024, 512)
