@@ -69,8 +69,8 @@ def log_domain_sinkhorn_knopps(log_alpha, iters = 20):
     log_alpha = log_alpha.float()
 
     for _ in range(iters):
-        log_alpha = log_alpha - log_alpha.logsumexp(dim = -2, keepdim = True)
-        log_alpha = log_alpha - log_alpha.logsumexp(dim = -1, keepdim = True)
+        log_alpha = F.log_softmax(log_alpha, dim = -2)
+        log_alpha = F.log_softmax(log_alpha, dim = -1)
 
     return log_alpha.exp().to(dtype)
 
