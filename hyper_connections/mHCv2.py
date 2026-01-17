@@ -124,8 +124,8 @@ def get_init_and_expand_reduce_stream_functions(
 
     hyper_conn_klass = ManifoldConstrainedHyperConnections if not disable else Residual
 
-    kwargs.pop('add_attn_pool_reduce_stream', None)
     init_hyper_conn_fn = partial(hyper_conn_klass, num_streams, num_fracs = num_fracs, sinkhorn_iters = sinkhorn_iters, use_triton_sinkhorn = use_triton_sinkhorn, **kwargs)
+
     expand_reduce_fns = get_expand_reduce_stream_functions(
         num_streams,
         add_stream_embed = add_stream_embed,
