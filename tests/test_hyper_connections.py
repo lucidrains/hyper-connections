@@ -280,3 +280,38 @@ def test_mhcv2(
     residual = reduce_stream(residual)
 
     assert residual.shape == (2, 1024, 512)
+
+def test_triton_sinkhorn():
+    import torch
+    if not torch.cuda.is_available():
+        pytest.skip('CUDA not available')
+
+    from hyper_connections.triton_sinkhorn import triton_sinkhorn
+    from hyper_connections.mHCv2 import sinkhorn_knopps, log_domain_sinkhorn_knopps
+
+    B, M, N = 2, 16, 16
+    log_alpha = torch.randn(B, M, N, device = 'cuda', requires_grad = True, dtype = torch.float32)
+    iters = 20
+
+    # 1. Forward equivalence with sinkhorn_knopps
+    out_triton = triton_sinkhorn(log_alpha, iters = iters)
+    out_torch = sinkhorn_knopps(log_alpha, iters = iters)
+    torch.testing.assert_close(out_triton, out_torch, atol = 1e-4, rtol = 1e-4)
+
+    # 2. Forward equivalence with log_domain_sinkhorn_knopps
+    out_log_torch = log_domain_sinkhorn_knopps(log_alpha, iters = iters)
+    torch.testing.assert_close(out_triton, out_log_torch, atol = 1e-4, rtol = 1e-4)
+
+    # 3. Backward parity check
+    out_triton.backward(torch.ones_like(out_triton))
+    grad_triton = log_alpha.grad.clone()
+
+    log_alpha.grad.zero_()
+    out_torch.backward(torch.ones_like(out_torch))
+    grad_torch = log_alpha.grad.clone()
+
+    torch.testing.assert_close(grad_triton, grad_torch, atol = 1e-3, rtol = 1e-3)
+
+    log_alpha_double = torch.randn(1, 4, 4, device = 'cuda', requires_grad = True, dtype = torch.float64)
+
+    torch.autograd.gradcheck(triton_sinkhorn, (log_alpha_double, 10), eps = 1e-6, atol = 1e-5)

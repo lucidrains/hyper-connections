@@ -109,6 +109,7 @@ def get_init_and_expand_reduce_stream_functions(
     add_attn_pool_reduce_stream = False,
     disable = None,
     sinkhorn_iters = 20,
+    use_triton_sinkhorn = False,
     **kwargs
 ):
     disable = default(disable, num_streams == 1 and num_fracs == 1)
@@ -116,7 +117,7 @@ def get_init_and_expand_reduce_stream_functions(
     hyper_conn_klass = ManifoldConstrainedHyperConnections if not disable else Residual
 
     kwargs.pop('add_attn_pool_reduce_stream', None)
-    init_hyper_conn_fn = partial(hyper_conn_klass, num_streams, num_fracs = num_fracs, sinkhorn_iters = sinkhorn_iters, **kwargs)
+    init_hyper_conn_fn = partial(hyper_conn_klass, num_streams, num_fracs = num_fracs, sinkhorn_iters = sinkhorn_iters, use_triton_sinkhorn = use_triton_sinkhorn, **kwargs)
     expand_reduce_fns = get_expand_reduce_stream_functions(
         num_streams,
         add_stream_embed = add_stream_embed,
@@ -231,7 +232,7 @@ class ManifoldConstrainedHyperConnections(Module):
         residual_mix_constraint_fn: Callable | None = None,
         forward_method_names: tuple[str, ...] = (),
         num_dynamic_alpha_proposals = 1,
-
+        use_triton_sinkhorn = False,
     ):
         """
         Appendix J, Algorithm2 in - https://arxiv.org/abs/2409.19606
@@ -306,10 +307,22 @@ class ManifoldConstrainedHyperConnections(Module):
         # Hres constraint related
         # by default is sinkhorn
 
-        self.residual_mix_constraint_fn = default(
-            residual_mix_constraint_fn,
-            partial(sinkhorn_knopps if not log_domain_sinkhorn else log_domain_sinkhorn_knopps, iters = sinkhorn_iters)
-        )
+        use_triton_sinkhorn_and_available = False
+
+        if use_triton_sinkhorn:
+            try:
+                from hyper_connections.triton_sinkhorn import triton_sinkhorn, is_triton_available
+                use_triton_sinkhorn_and_available = is_triton_available()
+            except ImportError:
+                use_triton_sinkhorn_and_available = False
+
+        if use_triton_sinkhorn_and_available:
+            self.residual_mix_constraint_fn = partial(triton_sinkhorn, iters = sinkhorn_iters)
+        else:
+            self.residual_mix_constraint_fn = default(
+                residual_mix_constraint_fn,
+                partial(sinkhorn_knopps if not log_domain_sinkhorn else log_domain_sinkhorn_knopps, iters = sinkhorn_iters)
+            )
 
         # dropouts
 
