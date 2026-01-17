@@ -47,6 +47,10 @@ def l1norm(t, dim):
     return F.normalize(t, p = 1, dim = dim)
 
 def sinkhorn_knopps(log_alpha, iters = 20):
+
+    if iters <= 0:
+        return log_alpha
+
     assert log_alpha.shape[-2] == log_alpha.shape[-1]
 
     dtype = log_alpha.dtype
@@ -63,6 +67,10 @@ def sinkhorn_knopps(log_alpha, iters = 20):
     return alpha.to(dtype)
 
 def log_domain_sinkhorn_knopps(log_alpha, iters = 20):
+
+    if iters <= 0:
+        return log_alpha
+
     assert log_alpha.shape[-2] == log_alpha.shape[-1]
 
     dtype = log_alpha.dtype
