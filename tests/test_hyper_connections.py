@@ -227,7 +227,9 @@ def test_mhc_vit(
         dropout = 0.1,
         emb_dropout = 0.1,
         num_residual_streams = 4,
-        num_dynamic_alpha_proposals = num_dynamic_alpha_proposals
+        mhc_kwargs = dict(
+            num_dynamic_alpha_proposals = num_dynamic_alpha_proposals
+        )
     )
 
     img = torch.randn(1, 3, 256, 256)
