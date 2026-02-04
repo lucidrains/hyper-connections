@@ -13,6 +13,8 @@ from torch.utils._pytree import tree_flatten, tree_unflatten
 from einops import rearrange, repeat, reduce, einsum
 from einops.layers.torch import Rearrange, Reduce
 
+from torch_einops_utils import pack_with_inverse
+
 """
 ein notation:
 b - batch
@@ -241,6 +243,7 @@ class ManifoldConstrainedHyperConnections(Module):
         forward_method_names: tuple[str, ...] = (),
         num_dynamic_alpha_proposals = 1,
         use_triton_sinkhorn = False,
+        mix_streams_before_norm = False, # whether to mix the residual streams before the norm (that then projects to Hpre, Hpost, Hresidual)
     ):
         """
         Appendix J, Algorithm2 in - https://arxiv.org/abs/2409.19606
@@ -262,6 +265,16 @@ class ManifoldConstrainedHyperConnections(Module):
         assert divisible_by(dim, num_fracs), f'feature dimension ({dim}) must be divisible by the `num_fracs` ({num_fracs})'
 
         dim //= num_fracs # effective dim handled in dimension is feature dimension divided by num fractions
+
+        # whether to mix the streams before the norm below
+        # this would be equivalent to separable depthwise convs from yesteryears (with a norm in between) - parameter efficient improv
+
+        self.maybe_mix_streams = None
+
+        if mix_streams_before_norm:
+            self.maybe_mix_streams = nn.Conv2d(num_residual_streams, num_residual_streams, 1, bias = False)
+
+            nn.init.dirac_(self.maybe_mix_streams.weight)
 
         # they used layernorm in paper, but rmsnorm is fine given what we know now
 
@@ -369,6 +382,14 @@ class ManifoldConstrainedHyperConnections(Module):
         # split out fractions
 
         residuals = self.split_fracs(residuals)
+
+        # maybe mix streams
+
+        if exists(self.maybe_mix_streams):
+
+            residuals, inverse_pack_lead_dims = pack_with_inverse(residuals, '* c h w')
+            residuals = self.maybe_mix_streams(residuals)
+            residuals = inverse_pack_lead_dims(residuals)
 
         # norm
 
