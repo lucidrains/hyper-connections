@@ -240,11 +240,13 @@ def test_mhc_vit(
 @param('num_fracs', (1, 2))
 @param('num_streams', (1, 3))
 @param('disable', (False, True))
+@param('mix_streams_before_norm', (False, True))
 @param('add_attn_pool_reduce_stream', (False, True))
 def test_mhcv2(
     num_fracs,
     num_streams,
     disable,
+    mix_streams_before_norm,
     add_attn_pool_reduce_stream
 ):
     import torch
@@ -263,7 +265,7 @@ def test_mhcv2(
 
     from hyper_connections.mHCv2 import get_init_and_expand_reduce_stream_functions
 
-    init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(num_streams, dim = 512, num_fracs = num_fracs, disable = disable, add_attn_pool_reduce_stream = add_attn_pool_reduce_stream)
+    init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(num_streams, dim = 512, num_fracs = num_fracs, mix_streams_before_norm = mix_streams_before_norm, disable = disable, add_attn_pool_reduce_stream = add_attn_pool_reduce_stream)
 
     # 1. wrap your branch function
 
