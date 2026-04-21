@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch import nn
 from torch.nn import Module
 
@@ -38,3 +39,26 @@ class GatedResidual(Module):
 
         out = x.lerp(residual, mix.sigmoid())
         return out
+
+class OrthogonalResidualUpdate(Module):
+    def __init__(
+        self,
+        double_precision = True
+    ):
+        super().__init__()
+        self.double_precision = double_precision
+
+    def forward(self, x, residual):
+        use_double, dtype = self.double_precision, residual.dtype
+
+        if use_double:
+            residual, x = residual.double(), x.double()
+
+        unit = F.normalize(residual, dim = -1)
+        parallel = (x * unit).sum(dim = -1, keepdim = True) * unit
+        orthogonal = x - parallel
+
+        if use_double:
+            orthogonal = orthogonal.to(dtype)
+
+        return residual + orthogonal

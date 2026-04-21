@@ -44,7 +44,7 @@ residual = expand_stream(residual)
 
 # 3. forward your residual as usual into the wrapped branch function(s)
 
-residual = hyper_conn_branch(residual) 
+residual = hyper_conn_branch(residual)
 
 # 4. reduce 4 streams with a summation, this has to be done after your for-loop trunk. for transformer, unsure whether to do before or after final norm
 
@@ -141,12 +141,24 @@ get_init_and_expand_reduce_stream_functions(1, num_fracs = 4) # also allows you 
 
 ```bibtex
 @misc{xie2025mhcmanifoldconstrainedhyperconnections,
-    title   = {mHC: Manifold-Constrained Hyper-Connections}, 
+    title   = {mHC: Manifold-Constrained Hyper-Connections},
     author  = {Zhenda Xie and Yixuan Wei and Huanqi Cao and Chenggang Zhao and Chengqi Deng and Jiashi Li and Damai Dai and Huazuo Gao and Jiang Chang and Liang Zhao and Shangyan Zhou and Zhean Xu and Zhengyan Zhang and Wangding Zeng and Shengding Hu and Yuqing Wang and Jingyang Yuan and Lean Wang and Wenfeng Liang},
     year    = {2025},
     eprint  = {2512.24880},
     archivePrefix = {arXiv},
     primaryClass = {cs.CL},
-    url     = {https://arxiv.org/abs/2512.24880}, 
+    url     = {https://arxiv.org/abs/2512.24880},
+}
+```
+
+```bibtex
+@misc{oh2026revisitingresidualconnectionsorthogonal,
+    title   = {Revisiting Residual Connections: Orthogonal Updates for Stable and Efficient Deep Networks},
+    author  = {Giyeong Oh and Woohyun Cho and Siyeol Kim and Suhwan Choi and Youngjae Yu},
+    year    = {2026},
+    eprint  = {2505.11881},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.CV},
+    url     = {https://arxiv.org/abs/2505.11881},
 }
 ```

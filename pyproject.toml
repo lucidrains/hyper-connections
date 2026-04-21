@@ -1,6 +1,6 @@
 [project]
 name = "hyper-connections"
-version = "0.4.9"
+version = "0.4.10"
 description = "Hyper-Connections"
 authors = [
     { name = "Phil Wang", email = "lucidrains@gmail.com" }
@@ -51,3 +51,11 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["hyper_connections"]
+
+[tool.hatch.build]
+include = [
+    "hyper_connections",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE"
+]

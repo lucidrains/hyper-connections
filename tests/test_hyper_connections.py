@@ -42,7 +42,7 @@ def test_readme(
 
     # 3. forward your residual as usual into the wrapped branch function(s)
 
-    residual = hyper_conn_branch(residual) 
+    residual = hyper_conn_branch(residual)
 
     # 4. reduce 4 streams with a summation, this has to be done after your for-loop trunk. for transformer, unsure whether to do before or after final norm
 
@@ -180,7 +180,7 @@ def test_channel_first_hyper_connection(disable):
 
     # 3. forward your residual as usual into the wrapped branch function(s)
 
-    residual = hyper_conn_branch(residual) 
+    residual = hyper_conn_branch(residual)
 
     # 4. reduce 4 streams with a summation, this has to be done after your for-loop trunk. for transformer, unsure whether to do before or after final norm
 
@@ -319,3 +319,25 @@ def test_triton_sinkhorn():
     log_alpha_double = torch.randn(1, 4, 4, device = 'cuda', requires_grad = True, dtype = torch.float64)
 
     torch.autograd.gradcheck(triton_sinkhorn, (log_alpha_double, 10), eps = 1e-6, atol = 1e-5)
+
+def test_hyper_connections_with_orthogonal_residual_update_e2e():
+    from hyper_connections import get_init_and_expand_reduce_stream_functions
+    from hyper_connections.residuals import OrthogonalResidualUpdate
+
+    branch = nn.Linear(512, 512)
+
+    residual = torch.randn(2, 1024, 512)
+
+    init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(4)
+
+    hyper_conn_branch = init_hyper_conn(
+        dim = 512,
+        branch = branch,
+        depth_residual_fn = OrthogonalResidualUpdate()
+    )
+
+    residual = expand_stream(residual)
+    residual = hyper_conn_branch(residual)
+    residual = reduce_stream(residual)
+
+    assert residual.shape == (2, 1024, 512)

@@ -144,7 +144,7 @@ class HyperConnections(Module):
         # beta for weights from branch output back to residual streams
 
         dc_weight = self.act(self.dynamic_beta_fn(normed))
-        dynamic_beta = dc_weight * self.dynamic_beta_scale        
+        dynamic_beta = dc_weight * self.dynamic_beta_scale
         dynamic_beta = rearrange(dynamic_beta, '(b s) ... -> b s ...', s = self.num_residual_streams)
         beta = dynamic_beta + rearrange(self.static_beta, 's -> s 1 1')
 
