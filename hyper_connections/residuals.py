@@ -62,3 +62,28 @@ class OrthogonalResidualUpdate(Module):
             orthogonal = orthogonal.to(dtype)
 
         return residual + orthogonal
+
+class MVSplitResidualUpdate(Module):
+    # Pengqi Lu https://arxiv.org/abs/2605.06169
+
+    def __init__(
+        self,
+        dim,
+        init_alpha = 0.,
+        init_beta = 0.03,
+        **kwargs
+    ):
+        super().__init__()
+        self.alpha = nn.Parameter(torch.ones(dim) * init_alpha)
+        self.beta = nn.Parameter(torch.ones(dim) * init_beta)
+
+    def prepare(self, residual):
+        return residual, residual, dict()
+
+    def forward(self, x, residual, **kwargs):
+        mean_x = x.mean(dim = -2, keepdim = True)
+        mean_residual = residual.mean(dim = -2, keepdim = True)
+
+        centered_x = x - mean_x
+
+        return residual + centered_x * self.beta + (mean_x - mean_residual) * self.alpha

@@ -341,3 +341,25 @@ def test_hyper_connections_with_orthogonal_residual_update_e2e():
     residual = reduce_stream(residual)
 
     assert residual.shape == (2, 1024, 512)
+
+def test_hyper_connections_with_mv_split_residual_update_e2e():
+    from hyper_connections import get_init_and_expand_reduce_stream_functions
+    from hyper_connections.residuals import MVSplitResidualUpdate
+
+    branch = nn.Linear(512, 512)
+
+    residual = torch.randn(2, 1024, 512)
+
+    init_hyper_conn, expand_stream, reduce_stream = get_init_and_expand_reduce_stream_functions(4)
+
+    hyper_conn_branch = init_hyper_conn(
+        dim = 512,
+        branch = branch,
+        depth_residual_fn = MVSplitResidualUpdate(dim = 512)
+    )
+
+    residual = expand_stream(residual)
+    residual = hyper_conn_branch(residual)
+    residual = reduce_stream(residual)
+
+    assert residual.shape == (2, 1024, 512)

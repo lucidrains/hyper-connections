@@ -162,3 +162,15 @@ get_init_and_expand_reduce_stream_functions(1, num_fracs = 4) # also allows you 
     url     = {https://arxiv.org/abs/2505.11881},
 }
 ```
+
+```bibtex
+@misc{lu2026meanmodescreamingmeanvariance,
+    title   = {Mean Mode Screaming: Mean--Variance Split Residuals for 1000-Layer Diffusion Transformers},
+    author  = {Pengqi Lu},
+    year    = {2026},
+    eprint  = {2605.06169},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2605.06169},
+}
+```
