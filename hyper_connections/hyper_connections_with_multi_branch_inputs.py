@@ -41,7 +41,7 @@ def identity(t):
 
 # main functions
 
-def get_expand_reduce_stream_functions(cls, num_streams, disable = False):
+def get_expand_reduce_stream_functions(num_streams, disable = False):
     if disable:
         return (nn.Identity(), nn.Identity())
 
@@ -50,7 +50,7 @@ def get_expand_reduce_stream_functions(cls, num_streams, disable = False):
 
     return expand_fn, reduce_fn
 
-def get_init_and_expand_reduce_stream_functions(cls, num_streams, disable = None):
+def get_init_and_expand_reduce_stream_functions(num_streams, disable = None):
 
     disable = default(disable, num_streams == 1)
 
