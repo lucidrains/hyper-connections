@@ -415,14 +415,15 @@ class ManifoldConstrainedHyperConnections(Module):
             branch_input, residuals = mix_h[..., :self.num_input_views, :], mix_h[..., self.num_input_views:, :]
             branch_input = rearrange(branch_input, 'b ... v d -> v b ... d')
 
-        if self.channel_first:
-            branch_input = rearrange(branch_input, 'b ... d -> b d ...')
-
         # maybe merge fractions back
 
         branch_input = self.merge_fracs(branch_input)
 
-        residuals = rearrange(residuals, 'b ... f s d -> (b s) ... (f d)')
+        if self.channel_first:
+            branch_input = rearrange(branch_input, 'b ... d -> b d ...')
+            residuals = rearrange(residuals, 'b ... f s d -> (b s) (f d) ...')
+        else:
+            residuals = rearrange(residuals, 'b ... f s d -> (b s) ... (f d)')
 
         branch_input, residuals = tuple(t.to(dtype) for t in (branch_input, residuals))
 
@@ -441,14 +442,12 @@ class ManifoldConstrainedHyperConnections(Module):
         assert self.add_branch_out_to_residual
 
         # maybe split fractions
-
-        branch_output = self.split_fracs(branch_output)
-
-        # 'depth' connection
-
         if self.channel_first:
             branch_output = rearrange(branch_output, 'b d ... -> b ... d')
 
+        # maybe split fractions
+
+        branch_output = self.split_fracs(branch_output)
         dtype = residuals.dtype
 
         output = einsum(branch_output.float(), beta.float(), 'b ... f1 d, b ... f1 s f2 -> b ... f2 s d')

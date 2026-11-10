@@ -3,6 +3,8 @@ param = pytest.mark.parametrize
 
 import torch
 from torch import nn
+from hyper_connections import HyperConnections, mHC
+
 
 @param('num_fracs', (1, 4))
 @param('disable', (False, True))
@@ -363,3 +365,12 @@ def test_hyper_connections_with_mv_split_residual_update_e2e():
     residual = reduce_stream(residual)
 
     assert residual.shape == (2, 1024, 512)
+
+@pytest.mark.parametrize('num_fracs', (1, 2))
+@pytest.mark.parametrize('klass', (HyperConnections, mHC))
+def test_channel_first_with_fracs(num_fracs, klass):
+    branch = nn.Conv2d(64, 64, 3, padding = 1)
+    hc = klass(num_residual_streams = 4, dim = 64, channel_first = True, num_fracs = num_fracs, branch = branch)
+    x = torch.randn(8, 64, 16, 16)
+    out = hc(x)
+    assert out.shape == x.shape

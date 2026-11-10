@@ -320,12 +320,12 @@ class HyperConnections(Module):
             branch_input, residuals = mix_h[..., :self.num_input_views, :], mix_h[..., self.num_input_views:, :]
             branch_input = rearrange(branch_input, 'b ... v d -> v b ... d')
 
-        if self.channel_first:
-            branch_input = rearrange(branch_input, 'b ... d -> b d ...')
-
         # maybe merge fractions back
 
         branch_input = self.merge_fracs(branch_input)
+
+        if self.channel_first:
+            branch_input = rearrange(branch_input, 'b ... d -> b d ...')
 
         # reshape residuals back
 
@@ -347,12 +347,12 @@ class HyperConnections(Module):
 
         # maybe split fractions
 
-        branch_output = self.split_fracs(branch_output)
-
-        # 'depth' connection
-
         if self.channel_first:
             branch_output = rearrange(branch_output, 'b d ... -> b ... d')
+
+        # maybe split fractions
+
+        branch_output = self.split_fracs(branch_output)
 
         output = einsum(branch_output, beta, 'b ... f1 d, b ... f1 s f2 -> b ... f2 s d')
 
